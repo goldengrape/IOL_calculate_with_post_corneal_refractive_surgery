@@ -96,6 +96,9 @@ interact(thin_lens_power,
 
 # ## 修正角膜曲率K
 
+# ### 已知角膜屈光手术之前的K值
+# Seitz/Speicher’s 方法
+# 
 # 已知当前通过角膜曲率计测量出来的K值是个诡异的错误。那么要得到真正的K值，需要这些推导：
 
 # $$
@@ -130,14 +133,14 @@ interact(thin_lens_power,
 # $$
 # 
 
-# In[4]:
+# In[10]:
 
 
 def true_power_of_anterior_corneal(SimK):
     return SimK*0.376/0.3375
 
 
-# In[5]:
+# In[11]:
 
 
 interact(true_power_of_anterior_corneal, 
@@ -146,18 +149,20 @@ interact(true_power_of_anterior_corneal,
 
 # 那么角膜后表面的屈光力$P_p$, 就可以算出来了
 # $$
-# \mathrm{P}_{\mathrm{p}}=\mathrm{P}_{\mathrm{a}}-\mathrm{P}=(\operatorname{Sim} \mathrm{K} \times 1.114)-\operatorname{SimK} 
+# \mathrm{P}_{\mathrm{p}}=\mathrm{P}-\mathrm{P}_{\mathrm{a}}=\operatorname{SimK} - (\operatorname{Sim} \mathrm{K} \times 1.114)
 # \tag 4
 # $$
+# 
+# 注意, 这里我写的公式与参考论文中的相反, 严格按照数学运算来, 没有擅自取绝对值改变符号. 否则后续的过程容易出纰漏
 
-# In[6]:
+# In[17]:
 
 
 def true_power_of_posterior_corneal(SimK):
-    return true_power_of_anterior_corneal(SimK)-SimK
+    return SimK-true_power_of_anterior_corneal(SimK)
 
 
-# In[7]:
+# In[18]:
 
 
 interact(true_power_of_posterior_corneal, 
@@ -167,12 +172,15 @@ interact(true_power_of_posterior_corneal,
 # 接下来要绕一些. 先分清楚角膜屈光手术之前会测一个K值, SimK, 我们叫做preopSimK, Lasik术前的时候, 角膜前表面没有被切平过, 所以前后表面的半径还满足预设的比例关系, 是可以用preopSimK来推算后表面屈光力Pp的; 而做完了Lasik手术以后, 再测量SimK, 我们叫做postopSimK, 这个时候角膜前表面已经被切薄了, 前后表面的半径比例关系被打破了, postopSimK只能用来计算前表面的屈光力Pa,不能用来计算后表面的屈光力Pp.
 # 
 # 于是就有了下面这个公式:
+
 # $$
-# \mathrm{P}=\text { postpop } \mathrm{P}_{\mathrm{a}}+\mathrm{P}_{\mathrm{p}}=\text { postpop } \operatorname{Sim} \mathrm{K} \times 1.114+(\text { preop } \operatorname{SimK} \times 1.114-\text { preop }
+# \mathrm{P}=\text { postpop } \mathrm{P}_{\mathrm{a}}+\mathrm{P}_{\mathrm{p}}=\text { postpop } \operatorname{Sim} \mathrm{K} \times 1.114+(\text { preop }- \text { preop } \operatorname{SimK} \times 1.114)
 # \tag 5
 # $$
+# 
+# 注意: 这里严格按数学过程推导公式, 与参考论文中的$P_p$符号相反
 
-# In[8]:
+# In[19]:
 
 
 def true_K(preopSimK, postopSimK):
@@ -180,12 +188,172 @@ def true_K(preopSimK, postopSimK):
     return P
 
 
-# In[9]:
+# In[20]:
 
 
 interact(true_K,
         preopSimK=widgets.FloatText(value = 44),
         postopSimK=widgets.FloatText(value= 42));
+
+
+# 如果有以前的手术记录, 那么填入角膜屈光手术之前检查的角膜K值, 作为preopSimK, 最近再查一次角膜K值, 作为postopSimK, 计算以后得出角膜真实的K值, 这时可以考虑使用Double-K SRK/T公式计算IOL度数了.
+
+# ### 已知角膜屈光手术引入的屈光度差值
+# 
+# 如果找不到角膜屈光手术之前测量的角膜K值, 比如没有复印热敏打印的结果, 又没有在病历里记录. (应该不至于吧). 但是可以从手术记录里找到手术做了多少屈光度. 也就是 SIRC, surgical induced refractive change. 那么也可以算. 
+# 
+# 此时假设角膜后表面的屈光力是平均值-4.98D. 那么也可以不修改K值, 而是去修正keratometric index, 将1.3375这个数据修改掉.
+# 
+# * [Savini的方法](https://www.ncbi.nlm.nih.gov/pubmed/17523506/): $ n_{post} = 1.338 + 0.0009856\times SIRC $ (适用于近视)
+# * [Camellin的方法](https://www.ncbi.nlm.nih.gov/pubmed/16523839/): $ n_{post} = 1.3319 + 0.00113 \times SIRC $
+# * [Jarade的方法](https://www.ncbi.nlm.nih.gov/pubmed/16447940/): $ n_{post} = 1.3375 + 0.0014 \times SIRC $
+# 
+# 这三种方法的文献都是发在Journal of Refractive Surgery上, 但Journal of Refractive Surgery上说“2012年1月之前的文章是后台文件集的一部分，不适用于当前付费订阅。 要访问该文章，您可以在此处购买或购买完整的后台文件集”, 似乎是把老文章都压缩起来了. 于是这三篇文章的全文在sci-hub上我也没有找到. 
+# 
+
+# In[25]:
+
+
+def n_post(SIRC, method="savini"):
+    parameters={"savini":[1.338, 0.0009856],
+                "camellin":[1.3319, 0.00113],
+                "jarade": [1.3375,  0.0014],
+               }
+    m=method.lower()
+    n = parameters[m][0]+parameters[m][1]* SIRC
+    return n
+
+
+# In[27]:
+
+
+interact(n_post,
+         SIRC=widgets.FloatSlider(min=-10, max=+5, step=0.25, value=-3),
+         method=["savini", "camellin", "jarade"]
+        );
+
+
+# 得到修正过的折射率以后, 根据(1)式, 计算新的K值
+# $$
+# P=\frac{n_2-n_1}{r}
+# \tag 1
+# $$
+
+# In[28]:
+
+
+def true_K_based_on_SIRC(SimK, SIRC, method="savini"):
+    n_2=n_post(SIRC, method)
+    r=(1.3375-1)/SimK
+    p=(n_2-1)/r
+    return p
+
+
+# In[30]:
+
+
+interact(true_K_based_on_SIRC,
+         SimK=widgets.FloatText(value=43),
+         SIRC=widgets.FloatText(value=-3),
+         method=["savini", "camellin", "jarade"]
+        );
+
+
+# 得到的K值, 应该代入到 Double-K SRK/T公式中, 计算IOL度数.
+
+# ### 直接修正IOL计算结果
+# 
+# 还有一组研究者, 直接把角膜屈光手术修正的度数SIRC, 和IOL计算结果直接联系起来, 计算出一个修正量. 直接加到IOL计算结果里面就是了. 这里的IOL结果, 可以由Single-K SRK/T (近视) 或者 Single-K Hoffer Q (远视) 来计算. 
+# 
+# * Masket的方法: $\Delta IOL = SIRC \times (−0.326) + 0.101 $
+# * [Latkany的方法](https://sci-hub.tw/10.1016/j.jcrs.2004.06.053) : 用屈光手术前的等效球镜度数RXpre(原始文献中称为SEQm)来计算. 代入SRK/T公式的时候, 根据使用的K值不同, 有两种
+#     * 使用K1,K2的平均值代入代入SRK/T公式时: $\Delta IOL= −(0.46 \times RXpre + 0.21) $ 
+#     * 使用最平坦的K 代入SRK/T公式时 :  $\Delta IOL= -(0.47 \times RXpre + 0.85) $ 
+#     * 当计算屈光术前是远视的患者时:$\Delta IOL= −(0.27 \times RXpre + 1.53) $
+
+# In[34]:
+
+
+def delta_IOL_power_masket(SIRC):
+    return SIRC*(-0.326+0.101)
+def delta_IOL_power_latkany(RXpre, Ktype="avg"):
+    if RXpre >0:
+        delta_IOL= -1*(0.27 * RXpre + 1.53)
+    elif Ktype.lower()=="avg":
+        delta_IOL= -1*(0.46 * RXpre + 0.21)
+    elif Ktype.lower()=="flattest":
+        delta_IOL= -1*(0.47 * RXpre + 0.85)
+    return delta_IOL
+
+
+# In[36]:
+
+
+interact(delta_IOL_power_masket, SIRC=-3);
+interact(delta_IOL_power_latkany, RXpre=-3, Ktype=["avg","flattest"]);
+
+
+# [Awwad’s 的方法](https://sci-hub.tw/10.1016/j.jcrs.2008.03.020):一口气搞出了6个公式, 就看现在手里有哪些数据了. (简直是练习函数重载的例题), 其中几个参数先解释下:
+# * $ACCP_{3mm}$ 这是使用Placido环原理的角膜地形图测量出来的中央角膜3mm直径内的平均屈光力. 与角膜曲率计测量出来的SimK不同, Placido环的原理决定了正中央的角膜曲率是测不出来的, 只能从周围的数据外推得到. 学究气我喜欢.
+# * $SE_{preLASIK}, SE_{postLASIK}$, Lasik手术前后的等效球镜. 两者之差$SE_{postLASIK} - SE_{preLASIK})$显然就是手术做掉的屈光度SIRC
+# * $K_{preLASIK}$, Lasik术前的角膜曲率K, 相当于前面公式里的preopSimK
+
+# * Parameter set 1: $ ACCP_{3mm}, \space and \space  (SE_{postLASIK},  SE_{preLASIK}) $
+#   * $ ACCP_{adj}=ACCP_{3mm} - 0.16\times(SE_{postLASIK} - SE_{preLASIK}) $
+#   
+# * Parameter set 2: $ SimK, \space and \space (SE_{postLASIK},  SE_{preLASIK})$
+#   * $ SimK_{adj}= SimK - 0.23 \times (SE_{postLASIK} - SE_{preLASIK})$
+#   
+# * Parameter set 3: $ ACCP_{3mm}, \space(SE_{postLASIK} , \space SE_{preLASIK})), and \space K_{preLASIK} $
+#   * $ ACCP_{adj\space preK} = 1.16 \times ACCP_{3mm} - 0.16 \times  K_{preLASIK} $
+#   
+# * Parameter set 4: $ ACCP_{3mm},\space and\space  K_{preLASIK} $
+#   * $ACCP_{adj \space all \space history}=0.95 \times ACCP_{3mm} - 0.196 \times(SE_{postLASIK} - SE_{preLASIK}) +0.053 K_{preLASIK}-  0.128$ 
+#   
+# * Parameter set 5: $ ACCP_{3mm} $ alone
+#   * $ ACCP_{adj \space no \space history}=1.151 \times ACCP_{3mm} - 6.799 $
+#   
+# * Parameter set 6: SimK alone
+#   * $SimK_{adj \space no \space history}=1.114 \times  SimK - 6.062 $
+
+# [Intraocular lens power calculation in eyes with previous corneal refractive surgery](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6053834/) 的作者就看上了前两个参数调整:
+# 
+# * $ ACCP_{adj}=ACCP_{3mm} - 0.16\times(SE_{postLASIK} - SE_{preLASIK}) =ACCP_{3mm} - 0.16\times SIRC $
+# * $ SimK_{adj}= SimK - 0.23 \times (SE_{postLASIK} - SE_{preLASIK})=SimK - 0.23 \times SIRC$
+
+# 如果是远视 
+# * $ ACCP_{adj} = ACCP_{3mm} + 0.144 \times SIRC $
+# * $ SimK_{adj} = SimK + 0.165 \times SIRC $
+# 
+
+# Awwad方法算出来的角膜屈光力, 用修正后的ACCP或者修正后的SimK, 要代入Double-K SRK/T (近视) 或者 Hoffer Q (远视)来计算IOL度数.
+
+# In[38]:
+
+
+{("ACCP","myopia"):3}
+
+
+# In[39]:
+
+
+def K_adj(K, SIRC, Ktype="ACCP", Rtype="myopia"):
+    parameter={("ACCP","myopia"):-0.16,
+               ("SimK","myopia"):-0.23,
+               ("ACCP","hyperopia"):+0.144,
+               ("SimK","hyperopia"):+0.165,
+              }
+    return K+parameter[(Ktype,Rtype)]* SIRC
+
+
+# In[43]:
+
+
+interact(K_adj,
+         K=43,
+        SIRC=-3,
+        Ktype=["ACCP","SimK"],
+        Rtype=["myopia","hyperopia"]);
 
 
 # In[ ]:
