@@ -1,0 +1,7 @@
+name: IOL_calc_environment
+channels:
+  - conda-forge
+dependencies:
+  - python
+  - numpy
+  - ipywidgets
