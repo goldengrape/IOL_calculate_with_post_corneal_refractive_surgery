@@ -15,13 +15,16 @@
 # In[34]:
 
 
-try:
-    import ipywidgets as widgets
-    from ipywidgets import interact, interact_manual, fixed
-except:
-    get_ipython().system('conda install -c conda-forge ipywidgets')
-    import ipywidgets as widgets
-    from ipywidgets import interact, interact_manual, fixed
+# try:
+#     import ipywidgets as widgets
+#     from ipywidgets import interact, interact_manual, fixed
+# except:
+#     !conda install -c conda-forge ipywidgets
+#     import ipywidgets as widgets
+#     from ipywidgets import interact, interact_manual, fixed
+
+import ipywidgets as widgets
+from ipywidgets import interact, interact_manual, fixed
 
 
 # ## 角膜屈光手术后，IOL为什么会算错？
