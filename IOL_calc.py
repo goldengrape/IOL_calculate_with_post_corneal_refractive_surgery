@@ -12,7 +12,7 @@
 # * 顺便练习交互式的Ipython
 #     * 要在jupyter上运行交互式的控件，比如滑动条之类，又懒得做一个GUI的图形界面。就需要使用ipywidgets这个库。关于ipywidgets的详细说明，请参考[ipywidgets的文档](https://ipywidgets.readthedocs.io/)也可以参考这个[15页python教程中的简单介绍](https://github.com/goldengrape/PartIA-Computing-Michaelmas-zh-CN/blob/master/zh-CN/08%20Plotting.ipynb)，我在这里仅仅使用的是基本功能。
 
-# In[19]:
+# In[1]:
 
 
 # try:
@@ -25,7 +25,7 @@
 
 import ipywidgets as widgets
 from ipywidgets import interact, interact_manual, fixed
-from compute_IOL import Double_K_SRK_T, SRK_T, HOFFER_Q
+from compute_IOL import Double_K_SRK_T, SRK_T, HOFFER_Q, shammas, Haigis_L, BESST
 
 
 # ## 角膜屈光手术后，IOL为什么会算错？
@@ -86,6 +86,16 @@ interact(thin_lens_power,
 # 
 # 那么，在角膜屈光手术以后，通过角膜曲率计测量的原始数值，还在使用1.3375来换算出一个K值，这个K并不是当前角膜前后表面曲率的联合了。将这个K值代入到人工晶体的计算公式中将引出一系列错误。
 
+# ### 角膜曲率半径测量错误
+# 
+# 很多设备, 尤其是Placido环为基础的角膜地形图, 角膜正中央的曲率半径是测不了的, 只能从周边的数据进行外推. 角膜屈光手术以后, 中央切平了一些, 而周边还是比较陡峭的, 那么如果按照周边进行外推, 很可能推错. 尤其是对于切削区域比较小的, 或者是切削偏中心的病例, 可能影响更大.
+
+# ### 公式错误
+# 
+# 计算IOL度数的公式, 发展到第三代, Hoffer Q, Holladay 1 and SRK/T, 使用角膜曲率作为参数来预测“有效晶体位置”ELP. 但如果近视激光手术, 角膜切平了, 这些公式就可能会低估ELP的位置. 而远视的屈光手术, 角膜更陡峭一些, 这些公式则会高估ELP位置.
+# 
+# 这个问题只对使用角膜曲率来估计ELP的公式才存在, Haigis不受影响.
+
 # # 病史数据已知
 
 # 当患者具备以下资料时：
@@ -103,8 +113,7 @@ interact(thin_lens_power,
 # 已知当前通过角膜曲率计测量出来的K值是个诡异的错误。那么要得到真正的K值，需要这些推导：
 
 # $$
-# P=P_a+P_p
-# \\ = \frac{n_2-n_1}{r_1}+\frac{n_3-n_2}{r_2}
+# P=P_a+P_p = \frac{n_2-n_1}{r_1}+\frac{n_3-n_2}{r_2}
 # \tag 2
 # $$
 # 
@@ -199,7 +208,7 @@ interact(true_K,
 
 # 如果有以前的手术记录, 那么填入角膜屈光手术之前检查的角膜K值, 作为preopSimK, 最近再查一次角膜K值, 作为postopSimK, 计算以后得出角膜真实的K值, 这时可以考虑使用Double-K SRK/T公式计算IOL度数了.
 
-# In[20]:
+# In[10]:
 
 
 def Double_K_SRK_T_with_true_K(AL, preopSimK, postopSimK, A, REFt):
@@ -208,7 +217,7 @@ def Double_K_SRK_T_with_true_K(AL, preopSimK, postopSimK, A, REFt):
     return Double_K_SRK_T(AL, Kpre, Kpost, A,REFt)
 
 
-# In[22]:
+# In[11]:
 
 
 interact(Double_K_SRK_T_with_true_K,
@@ -232,7 +241,7 @@ interact(Double_K_SRK_T_with_true_K,
 # 这三种方法的文献都是发在Journal of Refractive Surgery上, 但Journal of Refractive Surgery上说“2012年1月之前的文章是后台文件集的一部分，不适用于当前付费订阅。 要访问该文章，您可以在此处购买或购买完整的后台文件集”, 似乎是把老文章都压缩起来了. 于是这三篇文章的全文在sci-hub上我也没有找到. 
 # 
 
-# In[10]:
+# In[12]:
 
 
 def n_post(SIRC, method="savini"):
@@ -245,7 +254,7 @@ def n_post(SIRC, method="savini"):
     return n
 
 
-# In[11]:
+# In[13]:
 
 
 interact(n_post,
@@ -260,7 +269,7 @@ interact(n_post,
 # \tag 1
 # $$
 
-# In[12]:
+# In[14]:
 
 
 def true_K_based_on_SIRC(SimK, SIRC, method="savini"):
@@ -270,7 +279,7 @@ def true_K_based_on_SIRC(SimK, SIRC, method="savini"):
     return p
 
 
-# In[13]:
+# In[15]:
 
 
 interact(true_K_based_on_SIRC,
@@ -284,7 +293,7 @@ interact(true_K_based_on_SIRC,
 # 
 # 此处有一些模糊, 计算出来的是 n(post) = 1.338 + 0.0009856 x, 也就是说是角膜屈光手术之后的n, 根据这个n, 算出来的就应该是Kpost, 那么角膜屈光手术之前的Kpre呢? 也仍然是要有这个记录的么?
 
-# In[23]:
+# In[16]:
 
 
 def Double_K_SRK_T_with_true_K_based_on_SIRC(AL,preopSimK, SimK,  A, REFt, SIRC, method="savini"):
@@ -293,7 +302,7 @@ def Double_K_SRK_T_with_true_K_based_on_SIRC(AL,preopSimK, SimK,  A, REFt, SIRC,
     return Double_K_SRK_T(AL, Kpre, Kpost, A,REFt)
 
 
-# In[25]:
+# In[17]:
 
 
 interact(Double_K_SRK_T_with_true_K_based_on_SIRC,
@@ -317,7 +326,7 @@ interact(Double_K_SRK_T_with_true_K_based_on_SIRC,
 #     * 使用最平坦的K 代入SRK/T公式时 :  $\Delta IOL= -(0.47 \times RXpre + 0.85) $ 
 #     * 当计算屈光术前是远视的患者时:$\Delta IOL= −(0.27 \times RXpre + 1.53) $
 
-# In[14]:
+# In[18]:
 
 
 def delta_IOL_power_masket(SIRC):
@@ -332,7 +341,7 @@ def delta_IOL_power_latkany(RXpre, Ktype="avg"):
     return delta_IOL
 
 
-# In[15]:
+# In[19]:
 
 
 interact(delta_IOL_power_masket, SIRC=-3);
@@ -374,7 +383,7 @@ interact(delta_IOL_power_latkany, RXpre=-3, Ktype=["avg","flattest"]);
 
 # Awwad方法算出来的角膜屈光力, 用修正后的ACCP或者修正后的SimK, 要代入Double-K SRK/T (近视) 或者 Hoffer Q (远视)来计算IOL度数.
 
-# In[17]:
+# In[20]:
 
 
 def K_adj(K, SIRC, Ktype="ACCP", Rtype="myopia"):
@@ -386,7 +395,7 @@ def K_adj(K, SIRC, Ktype="ACCP", Rtype="myopia"):
     return K+parameter[(Ktype,Rtype)]* SIRC
 
 
-# In[18]:
+# In[21]:
 
 
 interact(K_adj,
@@ -394,6 +403,129 @@ interact(K_adj,
         SIRC=-3,
         Ktype=["ACCP","SimK"],
         Rtype=["myopia","hyperopia"]);
+
+
+# ### 临床病史法
+# 
+# Clinical history method, CHM
+# 这是假设角膜屈光手术后的K值Kpost是等于之前的K值Kpre减去切掉的SIRC
+# $$
+# Kpost = Kpre − SIRC
+# $$
+# 然后把Kpre, Kpost代入到Double K SRK/T公式里. 但这个方案依赖良好的病历记录.
+
+# In[22]:
+
+
+def Double_K_SRK_T_CHM(AL, Kpre, SIRC, A,REFt ):
+    Kpost= Kpre-SIRC
+    return Double_K_SRK_T(AL, Kpre, Kpost, A,REFt )
+
+
+# In[23]:
+
+
+interact(Double_K_SRK_T_CHM,
+        AL=widgets.FloatText(value=23.5),
+        Kpre=widgets.FloatText(value=44),
+        A=widgets.FloatText(value=118.4),
+        REFt=widgets.FloatText(value=-0.5),
+        SIRC=widgets.FloatText(value=-3),
+        );
+
+
+# # 病史数据未知
+# 
+# 如果完全没有角膜屈光手术前的角膜曲率数据, 也没有屈光状态的改变量, 大概是连病历都找不到的那种.
+
+# * Shammas-PL and PHL formulas:
+# $$
+# Corneal\space power = 1.14 ∗ Kpost − 6.8
+# $$
+# 然后要代入Shammas公式. 这个公式不依赖角膜曲率来估计ELP. 所以仅仅就是修正一下K值. 如果仔细看一下Shammas公式的话, 会发现在公式中已经有一步
+# ```
+# #     KERATOMETRY CORRECTION:  
+#     KS = 1.14 * Kpost - 6.8 
+# ```
+# 所以直接代入Kpost就好了. 
+
+# In[24]:
+
+
+interact(shammas,
+         Kpost=widgets.FloatText(value=43), 
+         A=widgets.FloatText(value=118.4), 
+         L=widgets.FloatText(value=23),
+         R=widgets.FloatText(value=-0.5)
+        );
+
+
+# * Maloney方法:
+# 
+# K = measured K ∗ 1.114 − 4.90
+# 
+# 此处不是很明白, 不确定后续应该代入到什么公式里.
+
+# ## Haigis-L 
+# Haigis-L公式, 按照这篇文献[Intraocular lens calculation after refractive surgery for myopia: Haigis-L formula](https://www.ncbi.nlm.nih.gov/pubmed/18812114/)的说明,
+# 
+# 应该是将测量到的角膜中央曲率半径$r_{meas}$, 进行了一番修正, 得到一个$r_{corr}$, 再代入到标准的Haigis公式中
+# 
+# >Hence, if $r_{meas}$ is the corneal radius (mm) measured with the IOLMaster in an eye after laser surgery for myopia, the corrected radius $r_{corr}$ to be entered into the regular Haigis formula is calculated according to
+# 
+# $$
+# r_{c o r r}=\frac{331.5}{-5.1625 \times r_{m e a s}+82.2603-0.35}
+# $$
+
+# In[25]:
+
+
+interact(Haigis_L,
+         R=widgets.FloatText(value=7.45),
+         AC=widgets.FloatText(value=2.69),
+         L=widgets.FloatText(value=21.44),
+         A=widgets.FloatText(value=118.0),
+         Rx=widgets.FloatText(value=-0.25), 
+         a0=widgets.FloatText(value=1.277),
+         a1=widgets.FloatText(value=0.400),
+         a2=widgets.FloatText(value=0.100)
+        );
+
+
+# ## Gaussian optics formula
+# 
+# 这一篇也略喜欢, 按照高斯光学公式, 把角膜看作是有一定厚度的两个面. 是的, 前面的公式其实都忽略了角膜的厚度. 如果算上厚度, 应该是这样的:
+# $$
+# \mathrm{P}=\frac{\left(\mathrm{n}_{1}-\mathrm{n}_{0}\right)} {\mathrm{r}_{1}}+
+#            \frac{\left(\mathrm{n}_{2}-\mathrm{n}_{1}\right)} {\mathrm{r}_{2}}-
+#            \frac{\mathrm{d}} {\mathrm{n}_{1}} \times
+#            \frac{\left(\mathrm{n}_{1}-\mathrm{n}_{0}\right)}{ \mathrm{r}_{1}}\times
+#            \frac{\left(\mathrm{n}_{2}-\mathrm{n}_{1}\right)}{\mathrm{r}_{2}}
+#            \tag {3.2}
+# $$
+# 跟之前的公式比较一下:
+# $$
+# P=P_a+P_p = \frac{n_2-n_1}{r_1}+\frac{n_3-n_2}{r_2}
+# $$
+# 
+# 发现是多了一组与厚度d有关的项
+
+# 这个公式要测量出角膜前后表面的曲率半径数据, 所以要用Scheimpflug相机的角膜地形图测量设备, 比如PentaCam. 但GOF方式据说有一些误差, 所以Borasio等改善了GOF开发出[BESSt formula](https://sci-hub.tw/10.1016/j.jcrs.2006.08.037).
+# 
+# BESSt公式, 是根据测量得到的角膜前后表面曲率半径, 重新计算出角膜屈光力, 然后再代入到SRK/T公式, 或者Hoffer Q公式中计算IOL度数. 其中“正常”的眼用SRK/T公式, 眼轴<=22.0mm的使用Hoffer Q公式, 其中还有个细节, SRK/T公式里在计算角膜高度的时候, 有一步开方运算, 被开方是计算出来的角膜宽度, 如果被开方的数小于0, 显然会出错, 在IOL Master中强制=0了. 但在BESSt公式中如果出现被开方小于零的错误, 则切换到Hoffer Q去计算.
+
+# In[27]:
+
+
+interact(BESST,
+         rF=widgets.FloatText(value=7.6),
+         rB=widgets.FloatText(value=7.8),
+         CCT=widgets.FloatText(value=0.5), 
+         AL=widgets.FloatText(value=23), 
+         ACD=widgets.FloatText(value=3.5), 
+         A=widgets.FloatText(value=118.4),
+         Rx=widgets.FloatText(value=-0.5)
+        );
 
 
 # In[ ]:
