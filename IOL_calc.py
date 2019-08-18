@@ -12,7 +12,7 @@
 # * 顺便练习交互式的Ipython
 #     * 要在jupyter上运行交互式的控件，比如滑动条之类，又懒得做一个GUI的图形界面。就需要使用ipywidgets这个库。关于ipywidgets的详细说明，请参考[ipywidgets的文档](https://ipywidgets.readthedocs.io/)也可以参考这个[15页python教程中的简单介绍](https://github.com/goldengrape/PartIA-Computing-Michaelmas-zh-CN/blob/master/zh-CN/08%20Plotting.ipynb)，我在这里仅仅使用的是基本功能。
 
-# In[1]:
+# In[19]:
 
 
 # try:
@@ -25,6 +25,7 @@
 
 import ipywidgets as widgets
 from ipywidgets import interact, interact_manual, fixed
+from compute_IOL import Double_K_SRK_T, SRK_T, HOFFER_Q
 
 
 # ## 角膜屈光手术后，IOL为什么会算错？
@@ -133,14 +134,14 @@ interact(thin_lens_power,
 # $$
 # 
 
-# In[10]:
+# In[4]:
 
 
 def true_power_of_anterior_corneal(SimK):
     return SimK*0.376/0.3375
 
 
-# In[11]:
+# In[5]:
 
 
 interact(true_power_of_anterior_corneal, 
@@ -155,14 +156,14 @@ interact(true_power_of_anterior_corneal,
 # 
 # 注意, 这里我写的公式与参考论文中的相反, 严格按照数学运算来, 没有擅自取绝对值改变符号. 否则后续的过程容易出纰漏
 
-# In[17]:
+# In[6]:
 
 
 def true_power_of_posterior_corneal(SimK):
     return SimK-true_power_of_anterior_corneal(SimK)
 
 
-# In[18]:
+# In[7]:
 
 
 interact(true_power_of_posterior_corneal, 
@@ -180,7 +181,7 @@ interact(true_power_of_posterior_corneal,
 # 
 # 注意: 这里严格按数学过程推导公式, 与参考论文中的$P_p$符号相反
 
-# In[19]:
+# In[8]:
 
 
 def true_K(preopSimK, postopSimK):
@@ -188,7 +189,7 @@ def true_K(preopSimK, postopSimK):
     return P
 
 
-# In[20]:
+# In[9]:
 
 
 interact(true_K,
@@ -197,6 +198,26 @@ interact(true_K,
 
 
 # 如果有以前的手术记录, 那么填入角膜屈光手术之前检查的角膜K值, 作为preopSimK, 最近再查一次角膜K值, 作为postopSimK, 计算以后得出角膜真实的K值, 这时可以考虑使用Double-K SRK/T公式计算IOL度数了.
+
+# In[20]:
+
+
+def Double_K_SRK_T_with_true_K(AL, preopSimK, postopSimK, A, REFt):
+    Kpre=preopSimK
+    Kpost=true_K(preopSimK, postopSimK)
+    return Double_K_SRK_T(AL, Kpre, Kpost, A,REFt)
+
+
+# In[22]:
+
+
+interact(Double_K_SRK_T_with_true_K,
+        AL=widgets.FloatText(value=23.5),
+        preopSimK=widgets.FloatText(value=44),
+        postopSimK=widgets.FloatText(value=43),
+        A=widgets.FloatText(value=118.4),
+        REFt=widgets.FloatText(value=-0.5));
+
 
 # ### 已知角膜屈光手术引入的屈光度差值
 # 
@@ -211,7 +232,7 @@ interact(true_K,
 # 这三种方法的文献都是发在Journal of Refractive Surgery上, 但Journal of Refractive Surgery上说“2012年1月之前的文章是后台文件集的一部分，不适用于当前付费订阅。 要访问该文章，您可以在此处购买或购买完整的后台文件集”, 似乎是把老文章都压缩起来了. 于是这三篇文章的全文在sci-hub上我也没有找到. 
 # 
 
-# In[25]:
+# In[10]:
 
 
 def n_post(SIRC, method="savini"):
@@ -224,7 +245,7 @@ def n_post(SIRC, method="savini"):
     return n
 
 
-# In[27]:
+# In[11]:
 
 
 interact(n_post,
@@ -239,7 +260,7 @@ interact(n_post,
 # \tag 1
 # $$
 
-# In[28]:
+# In[12]:
 
 
 def true_K_based_on_SIRC(SimK, SIRC, method="savini"):
@@ -249,7 +270,7 @@ def true_K_based_on_SIRC(SimK, SIRC, method="savini"):
     return p
 
 
-# In[30]:
+# In[13]:
 
 
 interact(true_K_based_on_SIRC,
@@ -260,6 +281,31 @@ interact(true_K_based_on_SIRC,
 
 
 # 得到的K值, 应该代入到 Double-K SRK/T公式中, 计算IOL度数.
+# 
+# 此处有一些模糊, 计算出来的是 n(post) = 1.338 + 0.0009856 x, 也就是说是角膜屈光手术之后的n, 根据这个n, 算出来的就应该是Kpost, 那么角膜屈光手术之前的Kpre呢? 也仍然是要有这个记录的么?
+
+# In[23]:
+
+
+def Double_K_SRK_T_with_true_K_based_on_SIRC(AL,preopSimK, SimK,  A, REFt, SIRC, method="savini"):
+    Kpre=preopSimK    
+    Kpost=true_K_based_on_SIRC(SimK, SIRC, method)
+    return Double_K_SRK_T(AL, Kpre, Kpost, A,REFt)
+
+
+# In[25]:
+
+
+interact(Double_K_SRK_T_with_true_K_based_on_SIRC,
+        AL=widgets.FloatText(value=23.5),
+        preopSimK=widgets.FloatText(value=44),
+        SimK=widgets.FloatText(value=43),
+        A=widgets.FloatText(value=118.4),
+        REFt=widgets.FloatText(value=-0.5),
+        SIRC=widgets.FloatText(value=-3),
+        method=["savini", "camellin", "jarade"]
+        );
+
 
 # ### 直接修正IOL计算结果
 # 
@@ -271,7 +317,7 @@ interact(true_K_based_on_SIRC,
 #     * 使用最平坦的K 代入SRK/T公式时 :  $\Delta IOL= -(0.47 \times RXpre + 0.85) $ 
 #     * 当计算屈光术前是远视的患者时:$\Delta IOL= −(0.27 \times RXpre + 1.53) $
 
-# In[34]:
+# In[14]:
 
 
 def delta_IOL_power_masket(SIRC):
@@ -286,7 +332,7 @@ def delta_IOL_power_latkany(RXpre, Ktype="avg"):
     return delta_IOL
 
 
-# In[36]:
+# In[15]:
 
 
 interact(delta_IOL_power_masket, SIRC=-3);
@@ -328,13 +374,7 @@ interact(delta_IOL_power_latkany, RXpre=-3, Ktype=["avg","flattest"]);
 
 # Awwad方法算出来的角膜屈光力, 用修正后的ACCP或者修正后的SimK, 要代入Double-K SRK/T (近视) 或者 Hoffer Q (远视)来计算IOL度数.
 
-# In[38]:
-
-
-{("ACCP","myopia"):3}
-
-
-# In[39]:
+# In[17]:
 
 
 def K_adj(K, SIRC, Ktype="ACCP", Rtype="myopia"):
@@ -346,7 +386,7 @@ def K_adj(K, SIRC, Ktype="ACCP", Rtype="myopia"):
     return K+parameter[(Ktype,Rtype)]* SIRC
 
 
-# In[43]:
+# In[18]:
 
 
 interact(K_adj,
