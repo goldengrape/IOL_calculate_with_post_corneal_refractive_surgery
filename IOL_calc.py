@@ -184,7 +184,7 @@ interact(true_power_of_posterior_corneal,
 # 于是就有了下面这个公式:
 
 # $$
-# \mathrm{P}=\text { postpop } \mathrm{P}_{\mathrm{a}}+\mathrm{P}_{\mathrm{p}}=\text { postpop } \operatorname{Sim} \mathrm{K} \times 1.114+(\text { preop }- \text { preop } \operatorname{SimK} \times 1.114)
+# \mathrm{P}=\text { postpop } \mathrm{P}_{\mathrm{a}}+\mathrm{P}_{\mathrm{p}}=\text { postpop } \operatorname{Sim} \mathrm{K} \times 1.114+(\text { preop }\operatorname{SimK} - \text { preop } \operatorname{SimK} \times 1.114)
 # \tag 5
 # $$
 # 
@@ -514,7 +514,7 @@ interact(Haigis_L,
 # 
 # BESSt公式, 是根据测量得到的角膜前后表面曲率半径, 重新计算出角膜屈光力, 然后再代入到SRK/T公式, 或者Hoffer Q公式中计算IOL度数. 其中“正常”的眼用SRK/T公式, 眼轴<=22.0mm的使用Hoffer Q公式, 其中还有个细节, SRK/T公式里在计算角膜高度的时候, 有一步开方运算, 被开方是计算出来的角膜宽度, 如果被开方的数小于0, 显然会出错, 在IOL Master中强制=0了. 但在BESSt公式中如果出现被开方小于零的错误, 则切换到Hoffer Q去计算.
 
-# In[27]:
+# In[26]:
 
 
 interact(BESST,
